@@ -2,7 +2,7 @@ import pathlib
 import pandas as pd
 from torch.utils.data import Dataset
 from PIL import Image
-import os
+import torch
 
 from utils import get_dir
 
@@ -43,4 +43,6 @@ class CGIARDataset(Dataset):
         if self.split == "train":
             extent = self.df.iloc[idx, self.columns.index("extent")]
         
-        return self.df.iloc[idx, self.columns.index("ID")], self.image, extent
+        id = torch.FloatTensor([self.df.iloc[idx, self.columns.index("ID")]])
+        extent = torch.FloatTensor([extent])
+        return id, self.image, extent
