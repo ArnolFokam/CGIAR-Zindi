@@ -22,9 +22,9 @@ def time_activity(activity_name: str):
     Args:
         activity_name (str): string that describes the name of an activity. It can be arbitrary
     """
-    print("[Timing] %s started.", activity_name)
+    print(f"[Timing] {activity_name} started.")
     start = timeit.default_timer()
     yield
     duration = timeit.default_timer() - start
     
-    print("[Timing] %s finished (Took %.2fs).", activity_name, duration)
+    print(f"[Timing] {activity_name} finished (Took {duration:.2f}s).")

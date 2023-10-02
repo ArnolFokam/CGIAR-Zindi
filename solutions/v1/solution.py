@@ -65,15 +65,11 @@ if __name__ == "__main__":
             for _, images, extents in train_loader:
                 optimizer.zero_grad()
                 outputs = model(images.to(device))
-                print(outputs.mean())
-                print(extents.mean())
-                
                 loss = criterion(outputs.squeeze(), extents.to(device).squeeze())
                 loss.backward()
                 optimizer.step()
                 
                 epoch_loss += loss.item()
-                print(loss.item())
                 
             # Calculate average epoch loss
             avg_epoch_loss = epoch_loss / len(train_loader)
