@@ -1,7 +1,7 @@
 import contextlib
 import os
 from pathlib import Path
-from timeit import timeit
+import timeit
 
 def get_dir(*paths) -> str:
     """
