@@ -89,6 +89,18 @@ if __name__ == "__main__":
     
     # evaluation
     model.eval()
+    
+    train_predictions = []
+    
+    # get and save the train predictions
+    with torch.no_grad():
+        for ids, images, _ in train_loader:
+            outputs = model(images.to(device))
+            outputs = outputs.squeeze().tolist()
+            train_predictions.extend(list(zip(ids, outputs)))
+    
+    train_dataset.df['predicted_extent'] = train_dataset.df['ID'].map(dict(train_predictions))
+    train_dataset.df.to_csv(OUTPUT_DIR / 'train_predictions.csv', index=False)
 
     test_dataset = CGIARDataset(root_dir=DATA_DIR, split='test', transform=transform)
     test_loader = DataLoader(test_dataset, batch_size=TEST_BATCH_SIZE, shuffle=False)
