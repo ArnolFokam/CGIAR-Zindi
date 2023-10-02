@@ -58,5 +58,19 @@ class CGIARDataset_V2(CGIARDataset):
         super().__init__(root_dir, split, transform)
         self.num_views = num_views
         
+    # no caching for true random crops
+    def __getitem__(self, idx):
+        image = Image.open(self.images_dir / self.df.iloc[idx, self.columns.index("filename")]).convert('RGB')
+        
+        if self.transform:
+            image = self._transform_image(image)
+        
+        extent = -1
+        if self.split == "train":
+            extent = self.df.iloc[idx, self.columns.index("extent")]
+        
+        extent = torch.FloatTensor([extent])
+        return self.df.iloc[idx, self.columns.index("ID")], image, extent
+        
     def _transform_image(self, image):
         return [self.transform(image) for _ in range(self.num_views)]

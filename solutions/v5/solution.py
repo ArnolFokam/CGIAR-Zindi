@@ -80,6 +80,8 @@ if __name__ == "__main__":
             print(f'Loss: {avg_epoch_loss}')
     
     torch.save(model.state_dict(), OUTPUT_DIR / 'model.pt')
+    
+    torch.cuda.empty_cache()
         
     # Plot the loss curve
     plt.plot(range(1, EPOCHS+1), losses)
@@ -90,9 +92,9 @@ if __name__ == "__main__":
     plt.savefig(OUTPUT_DIR / 'train_loss.png')
     
     # evaluation
-    model = Resnet50_V1()
-    model.load_state_dict(torch.load(OUTPUT_DIR / '#1' / 'model.pt'))
-    model = model.to(device)
+    # model = Resnet50_V1()
+    # model.load_state_dict(torch.load(OUTPUT_DIR / '#1' / 'model.pt'))
+    # model = model.to(device)
     model.eval()
     
     train_loader.dataset.num_views = NUM_VIEWS
