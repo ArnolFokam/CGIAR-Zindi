@@ -8,7 +8,7 @@ import torch.nn as nn
 
 from cgiar.data import CGIARDataset
 from cgiar.model import Resnet50_V1
-from cgiar.utils import get_dir
+from cgiar.utils import get_dir, time_activity
 
 if __name__ == "__main__":
     # Define hyperparameters
@@ -60,24 +60,26 @@ if __name__ == "__main__":
         
         epoch_loss = 0.0
         
-        for _, images, extents in train_loader:
-            optimizer.zero_grad()
-            outputs = model(images.to(device))
-            print(outputs.mean())
-            print(extents.mean())
-            
-            loss = criterion(outputs.squeeze(), extents.to(device).squeeze())
-            loss.backward()
-            optimizer.step()
-            
-            epoch_loss += loss.item()
-            print(loss.item())
-            
-        # Calculate average epoch loss
-        avg_epoch_loss = epoch_loss / len(train_loader)
-        losses.append(avg_epoch_loss)
+        with time_activity(f'Epoch [{epoch+1}/{EPOCHS}]'):
         
-        print(f'Epoch [{epoch+1}/{EPOCHS}], Loss: {avg_epoch_loss}')
+            for _, images, extents in train_loader:
+                optimizer.zero_grad()
+                outputs = model(images.to(device))
+                print(outputs.mean())
+                print(extents.mean())
+                
+                loss = criterion(outputs.squeeze(), extents.to(device).squeeze())
+                loss.backward()
+                optimizer.step()
+                
+                epoch_loss += loss.item()
+                print(loss.item())
+                
+            # Calculate average epoch loss
+            avg_epoch_loss = epoch_loss / len(train_loader)
+            losses.append(avg_epoch_loss)
+        
+            print(f'Loss: {avg_epoch_loss}')
     
     torch.save(model.state_dict(), OUTPUT_DIR / 'model.pt')
         
