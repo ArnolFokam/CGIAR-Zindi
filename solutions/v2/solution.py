@@ -5,6 +5,7 @@ from torch import optim
 import matplotlib.pyplot as plt
 import pandas as pd
 import torch.nn as nn
+import torch.nn.functional as F
 
 from cgiar.data import CGIARDataset
 from cgiar.model import Resnet50_V1
@@ -13,14 +14,15 @@ from cgiar.utils import get_dir, time_activity
 if __name__ == "__main__":
     # Define hyperparameters
     SEED=42
-    LR=1e-5
-    EPOCHS=100
+    LR=1e-4
+    EPOCHS=30
     IMAGE_SIZE=224
     TRAIN_BATCH_SIZE=64
     TEST_BATCH_SIZE=32
 
+    MULTIPLIER=100.0
     DATA_DIR=get_dir('data')
-    OUTPUT_DIR=get_dir('solutions/v1')
+    OUTPUT_DIR=get_dir('solutions/v2')
 
     # ensure reproducibility
     torch.manual_seed(SEED)
@@ -47,8 +49,8 @@ if __name__ == "__main__":
     model = Resnet50_V1()
     model = model.to(device)
 
-    # Define loss function (mean squared error) and optimizer (e.g., Adam)
-    criterion = nn.MSELoss()
+    # Define loss function (binary cross entropy) and optimizer (e.g., Adam)
+    criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LR)
 
     model.train()
@@ -65,7 +67,7 @@ if __name__ == "__main__":
             for _, images, extents in train_loader:
                 optimizer.zero_grad()
                 outputs = model(images.to(device))
-                loss = criterion(outputs.squeeze(), extents.to(device).squeeze())
+                loss = criterion(outputs.squeeze(), extents.to(device).squeeze() / MULTIPLIER)
                 loss.backward()
                 optimizer.step()
                 
@@ -96,8 +98,8 @@ if __name__ == "__main__":
 
     with torch.no_grad():
         for ids, images, _ in test_loader:
-            outputs = model(images.to(device))
-            outputs = outputs.squeeze().tolist()
+            outputs = F.sigmoid(model(images.to(device)))
+            outputs = outputs.squeeze().tolist() * MULTIPLIER
             predictions.extend(list(zip(ids, outputs)))
 
     # load the sample submission file and update the extent column with the predictions

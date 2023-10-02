@@ -3,5 +3,5 @@ build/
 dist/
 *.egg-info/
 data/
-solutions/*/*.pt
-solutions/*/*.pth
+*.pt
+*.pth
