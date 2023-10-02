@@ -1,10 +1,11 @@
+from functools import lru_cache
 import pathlib
 import pandas as pd
 from torch.utils.data import Dataset
 from PIL import Image
 import torch
 
-from utils import get_dir
+from cgiar.utils import get_dir
 
 class CGIARDataset(Dataset):
     """Pytorch data class"""
@@ -26,6 +27,7 @@ class CGIARDataset(Dataset):
         """
         self.images_dir = get_dir(root_dir) / split
         self.transform = transform
+        self.split = split
 
         # Determine the CSV file path based on the split
         self.df = pd.read_csv(root_dir / f'{self.split_to_csv_filename[split]}.csv')
@@ -33,6 +35,7 @@ class CGIARDataset(Dataset):
     def __len__(self):
         return len(self.df)
 
+    @lru_cache(maxsize=50000)
     def __getitem__(self, idx):
         image = Image.open(self.images_dir / self.df.iloc[idx, self.columns.index("filename")]).convert('RGB')
         
@@ -43,6 +46,5 @@ class CGIARDataset(Dataset):
         if self.split == "train":
             extent = self.df.iloc[idx, self.columns.index("extent")]
         
-        id = torch.FloatTensor([self.df.iloc[idx, self.columns.index("ID")]])
         extent = torch.FloatTensor([extent])
-        return id, self.image, extent
+        return self.df.iloc[idx, self.columns.index("ID")], image, extent
