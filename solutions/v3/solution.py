@@ -8,21 +8,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from cgiar.data import CGIARDataset
-from cgiar.model import Resnet50_V1
+from cgiar.model import Resnet50_V2
 from cgiar.utils import get_dir, time_activity
 
 if __name__ == "__main__":
     # Define hyperparameters
     SEED=42
     LR=1e-4
-    EPOCHS=50
+    EPOCHS=30
     IMAGE_SIZE=224
     TRAIN_BATCH_SIZE=64
     TEST_BATCH_SIZE=32
 
-    MULTIPLIER=100.0
     DATA_DIR=get_dir('data')
-    OUTPUT_DIR=get_dir('solutions/v2')
+    OUTPUT_DIR=get_dir('solutions/v3')
 
     # ensure reproducibility
     torch.manual_seed(SEED)
@@ -46,11 +45,11 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=TRAIN_BATCH_SIZE, shuffle=True)
 
     # Initialize the regression model
-    model = Resnet50_V1()
+    model = Resnet50_V2()
     model = model.to(device)
 
     # Define loss function (binary cross entropy) and optimizer (e.g., Adam)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LR)
 
     model.train()
@@ -67,7 +66,8 @@ if __name__ == "__main__":
             for _, images, extents in train_loader:
                 optimizer.zero_grad()
                 outputs = model(images.to(device))
-                loss = criterion(outputs.squeeze(), extents.to(device).squeeze() / MULTIPLIER)
+                targets = extents.to(device).squeeze().long()
+                loss = criterion(outputs, targets)
                 loss.backward()
                 optimizer.step()
                 
@@ -102,8 +102,8 @@ if __name__ == "__main__":
 
     with torch.no_grad():
         for ids, images, _ in test_loader:
-            outputs = F.sigmoid(model(images.to(device))) * MULTIPLIER
-            outputs = outputs.squeeze().tolist() 
+            outputs = torch.argmax(model(images.to(device)), dim=1)
+            outputs = outputs.squeeze().tolist()
             predictions.extend(list(zip(ids, outputs)))
 
     # load the sample submission file and update the extent column with the predictions
