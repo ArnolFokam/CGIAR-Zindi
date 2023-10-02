@@ -40,7 +40,7 @@ class CGIARDataset(Dataset):
         image = Image.open(self.images_dir / self.df.iloc[idx, self.columns.index("filename")]).convert('RGB')
         
         if self.transform:
-            image = self.transform(image)
+            image = self._transform_image(image)
         
         extent = -1
         if self.split == "train":
@@ -48,3 +48,15 @@ class CGIARDataset(Dataset):
         
         extent = torch.FloatTensor([extent])
         return self.df.iloc[idx, self.columns.index("ID")], image, extent
+    
+    def _transform_image(self, image):
+        return self.transform(image)
+        
+        
+class CGIARDataset_V2(CGIARDataset):
+    def __init__(self, root_dir: pathlib.Path, split: str ='train', transform=None, num_views=1):
+        super().__init__(root_dir, split, transform)
+        self.num_views = num_views
+        
+    def _transform_image(self, image):
+        return [self.transform(image) for _ in range(self.num_views)]

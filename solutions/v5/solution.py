@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import torch.nn as nn
 
-from cgiar.data import CGIARDataset
+from cgiar.data import CGIARDataset_V2
 from cgiar.model import Resnet50_V1
 from cgiar.utils import get_dir, time_activity
 
@@ -14,13 +14,14 @@ if __name__ == "__main__":
     # Define hyperparameters
     SEED=42
     LR=1e-4
-    EPOCHS=20
+    EPOCHS=30
     IMAGE_SIZE=224
     TRAIN_BATCH_SIZE=64
-    TEST_BATCH_SIZE=32
+    TEST_BATCH_SIZE=64
+    NUM_VIEWS=10
 
     DATA_DIR=get_dir('data')
-    OUTPUT_DIR=get_dir('solutions/v1')
+    OUTPUT_DIR=get_dir('solutions/v5')
 
     # ensure reproducibility
     torch.manual_seed(SEED)
@@ -32,13 +33,13 @@ if __name__ == "__main__":
         
     # Define transform for image preprocessing
     transform = transforms.Compose([
-        transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+        transforms.RandomResizedCrop(IMAGE_SIZE),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
     # Create instances of CGIARDataset for training and testing
-    train_dataset = CGIARDataset(root_dir=DATA_DIR, split='train', transform=transform)
+    train_dataset = CGIARDataset_V2(root_dir=DATA_DIR, split='train', transform=transform)
 
     # Create DataLoader instances
     train_loader = DataLoader(train_dataset, batch_size=TRAIN_BATCH_SIZE, shuffle=True)
@@ -63,6 +64,7 @@ if __name__ == "__main__":
         with time_activity(f'Epoch [{epoch+1}/{EPOCHS}]'):
         
             for _, images, extents in train_loader:
+                images = images[0]
                 optimizer.zero_grad()
                 outputs = model(images.to(device))
                 loss = criterion(outputs.squeeze(), extents.to(device).squeeze())
@@ -88,27 +90,34 @@ if __name__ == "__main__":
     plt.savefig(OUTPUT_DIR / 'train_loss.png')
     
     # evaluation
+    model = Resnet50_V1()
+    model.load_state_dict(torch.load(OUTPUT_DIR / '#1' / 'model.pt'))
+    model = model.to(device)
     model.eval()
     
+    train_loader.dataset.num_views = NUM_VIEWS
     train_predictions = []
     
     # get and save the train predictions
     with torch.no_grad():
-        for ids, images, _ in train_loader:
-            outputs = model(images.to(device))
+        for ids, images_list, _ in train_loader:
+            # average predictions from all the views
+            outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0)
             outputs = outputs.squeeze().tolist()
             train_predictions.extend(list(zip(ids, outputs)))
+            
     
     train_dataset.df['predicted_extent'] = train_dataset.df['ID'].map(dict(train_predictions))
     train_dataset.df.to_csv(OUTPUT_DIR / 'train_predictions.csv', index=False)
 
-    test_dataset = CGIARDataset(root_dir=DATA_DIR, split='test', transform=transform)
+    test_dataset = CGIARDataset_V2(root_dir=DATA_DIR, split='test', num_views=NUM_VIEWS, transform=transform)
     test_loader = DataLoader(test_dataset, batch_size=TEST_BATCH_SIZE, shuffle=False)
     predictions = []
 
     with torch.no_grad():
-        for ids, images, _ in test_loader:
-            outputs = model(images.to(device))
+        for ids, images_list, _ in test_loader:
+            # average predictions from all the views
+            outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0)
             outputs = outputs.squeeze().tolist()
             predictions.extend(list(zip(ids, outputs)))
 

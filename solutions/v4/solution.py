@@ -7,20 +7,21 @@ import pandas as pd
 import torch.nn as nn
 
 from cgiar.data import CGIARDataset
-from cgiar.model import Resnet50_V1
+from cgiar.model import Resnet50_V3
 from cgiar.utils import get_dir, time_activity
 
 if __name__ == "__main__":
     # Define hyperparameters
     SEED=42
     LR=1e-4
-    EPOCHS=20
+    EPOCHS=30
     IMAGE_SIZE=224
     TRAIN_BATCH_SIZE=64
     TEST_BATCH_SIZE=32
 
+    MULTIPLIER=10
     DATA_DIR=get_dir('data')
-    OUTPUT_DIR=get_dir('solutions/v1')
+    OUTPUT_DIR=get_dir('solutions/v4')
 
     # ensure reproducibility
     torch.manual_seed(SEED)
@@ -44,11 +45,11 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=TRAIN_BATCH_SIZE, shuffle=True)
 
     # Initialize the regression model
-    model = Resnet50_V1()
+    model = Resnet50_V3()
     model = model.to(device)
 
-    # Define loss function (mean squared error) and optimizer (e.g., Adam)
-    criterion = nn.MSELoss()
+    # Define loss function (binary cross entropy) and optimizer (e.g., Adam)
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LR)
 
     model.train()
@@ -65,7 +66,8 @@ if __name__ == "__main__":
             for _, images, extents in train_loader:
                 optimizer.zero_grad()
                 outputs = model(images.to(device))
-                loss = criterion(outputs.squeeze(), extents.to(device).squeeze())
+                targets = extents.to(device).squeeze().long() // MULTIPLIER
+                loss = criterion(outputs, targets)
                 loss.backward()
                 optimizer.step()
                 
@@ -87,6 +89,10 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.savefig(OUTPUT_DIR / 'train_loss.png')
     
+    # model = Resnet50_V3()
+    # model.load_state_dict(torch.load(OUTPUT_DIR / 'model.pt'))
+    # model = model.to(device)
+    
     # evaluation
     model.eval()
     
@@ -95,12 +101,13 @@ if __name__ == "__main__":
     # get and save the train predictions
     with torch.no_grad():
         for ids, images, _ in train_loader:
-            outputs = model(images.to(device))
-            outputs = outputs.squeeze().tolist()
+            outputs = torch.argmax(model(images.to(device)), dim=1) * MULTIPLIER
+            outputs = outputs.squeeze().int().tolist()
             train_predictions.extend(list(zip(ids, outputs)))
     
     train_dataset.df['predicted_extent'] = train_dataset.df['ID'].map(dict(train_predictions))
     train_dataset.df.to_csv(OUTPUT_DIR / 'train_predictions.csv', index=False)
+        
 
     test_dataset = CGIARDataset(root_dir=DATA_DIR, split='test', transform=transform)
     test_loader = DataLoader(test_dataset, batch_size=TEST_BATCH_SIZE, shuffle=False)
@@ -108,8 +115,8 @@ if __name__ == "__main__":
 
     with torch.no_grad():
         for ids, images, _ in test_loader:
-            outputs = model(images.to(device))
-            outputs = outputs.squeeze().tolist()
+            outputs = torch.argmax(model(images.to(device)), dim=1) * MULTIPLIER
+            outputs = outputs.squeeze().int().tolist()
             predictions.extend(list(zip(ids, outputs)))
 
     # load the sample submission file and update the extent column with the predictions
