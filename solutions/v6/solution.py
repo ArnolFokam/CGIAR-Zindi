@@ -4,24 +4,32 @@ from torch.utils.data import DataLoader
 from torch import optim
 import matplotlib.pyplot as plt
 import pandas as pd
+import argparse
 import torch.nn as nn
 
-from cgiar.data import CGIARDataset_V2
+from cgiar.data import CGIARDataset_V2, augmentations
 from cgiar.model import Resnet50_V1
 from cgiar.utils import get_dir, time_activity
 
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description="Image Augmentation Program")
+    parser.add_argument("--augmentation", type=str, help="Specify the augmentation to apply (e.g., 'flip', 'rotate', 'resize')")
+    parser.add_argument("--index", type=str, help="Specify the index of the run")
+    args = parser.parse_args()
+    
     # Define hyperparameters
     SEED=42
     LR=1e-4
     EPOCHS=30
     IMAGE_SIZE=224
     TRAIN_BATCH_SIZE=64
-    TEST_BATCH_SIZE=64
+    TEST_BATCH_SIZE=32
+    AUGMENTATION=args.augmentation
     NUM_VIEWS=10
 
     DATA_DIR=get_dir('data')
-    OUTPUT_DIR=get_dir('solutions/v5')
+    OUTPUT_DIR=get_dir('solutions/v6', args.index)
 
     # ensure reproducibility
     torch.manual_seed(SEED)
@@ -30,10 +38,13 @@ if __name__ == "__main__":
 
     # check if GPU is available
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    print(augmentations[AUGMENTATION], args.index)
         
     # Define transform for image preprocessing
     transform = transforms.Compose([
         transforms.RandomResizedCrop(IMAGE_SIZE),
+        augmentations[AUGMENTATION],
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])

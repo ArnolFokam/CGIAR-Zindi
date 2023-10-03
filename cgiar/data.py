@@ -1,11 +1,28 @@
-from functools import lru_cache
 import pathlib
 import pandas as pd
 from torch.utils.data import Dataset
+from torchvision import transforms
+
 from PIL import Image
 import torch
+from tqdm import tqdm
 
 from cgiar.utils import get_dir
+
+augmentations = {
+    "RandomHorizontalFlip": transforms.RandomHorizontalFlip(p=0.5),
+    "RandomVerticalFlip": transforms.RandomVerticalFlip(p=0.5),
+    "RandomRotation": transforms.RandomRotation(degrees=45),
+    "ColorJitter": transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+    "RandomAffine": transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+    "RandomPerspective": transforms.RandomPerspective(distortion_scale=0.5, p=0.5),
+    "RandomErasing": transforms.RandomErasing(p=0.5, scale=(0.02, 0.2), ratio=(0.3, 3.3)),
+    "RandomGrayscale": transforms.RandomGrayscale(p=0.1),
+    "RandomAffineWithResize": transforms.RandomAffine(degrees=30, translate=(0.2, 0.2), scale=(0.8, 1.2), interpolation=Image.BILINEAR),
+    "RandomPosterize": transforms.RandomPosterize(bits=4),
+    "RandomSolarize": transforms.RandomSolarize(threshold=128),
+    "RandomEqualize": transforms.RandomEqualize(p=0.1),
+}
 
 class CGIARDataset(Dataset):
     """Pytorch data class"""
@@ -18,7 +35,11 @@ class CGIARDataset(Dataset):
     
     columns = ["ID", "filename", "growth_stage", "extent", "season"]
     
-    def __init__(self, root_dir: pathlib.Path, split: str ='train', transform=None):
+    def __init__(self, 
+                 root_dir: pathlib.Path, 
+                 split: str ='train', 
+                 transform=None,
+                 initial_size : int =512):
         """
         Args:
             root_dir (pathlib.Path): Root directory containing all the image files.
@@ -31,13 +52,21 @@ class CGIARDataset(Dataset):
 
         # Determine the CSV file path based on the split
         self.df = pd.read_csv(root_dir / f'{self.split_to_csv_filename[split]}.csv')
+        
+        self.images = {}
+        
+        for idx, row in tqdm(self.df.iterrows(), total=len(self.df)):
+            image_path = self.images_dir / row['filename']
+            image = Image.open(image_path)
+            image = self._resize(image, initial_size)
+            self.images[idx] = image
 
     def __len__(self):
         return len(self.df)
 
-    @lru_cache(maxsize=50000)
     def __getitem__(self, idx):
-        image = Image.open(self.images_dir / self.df.iloc[idx, self.columns.index("filename")]).convert('RGB')
+        
+        image = self.images[idx]
         
         if self.transform:
             image = self._transform_image(image)
@@ -51,26 +80,30 @@ class CGIARDataset(Dataset):
     
     def _transform_image(self, image):
         return self.transform(image)
+    
+    def _resize(self, image: Image, size: int):
+        # Calculate the aspect ratio of the input image
+        width, height = image.size
+        aspect_ratio = width / height
+
+        # Determine the new dimensions while maintaining the aspect ratio
+        if aspect_ratio > 1:
+            new_width = size
+            new_height = int(size / aspect_ratio)
+        else:
+            new_height = size
+            new_width = int(size * aspect_ratio)
+
+        # Resize the image
+        resized_image = image.resize((new_width, new_height))
+
+        return resized_image
         
         
 class CGIARDataset_V2(CGIARDataset):
     def __init__(self, root_dir: pathlib.Path, split: str ='train', transform=None, num_views=1):
         super().__init__(root_dir, split, transform)
         self.num_views = num_views
-        
-    # no caching for true random crops
-    def __getitem__(self, idx):
-        image = Image.open(self.images_dir / self.df.iloc[idx, self.columns.index("filename")]).convert('RGB')
-        
-        if self.transform:
-            image = self._transform_image(image)
-        
-        extent = -1
-        if self.split == "train":
-            extent = self.df.iloc[idx, self.columns.index("extent")]
-        
-        extent = torch.FloatTensor([extent])
-        return self.df.iloc[idx, self.columns.index("ID")], image, extent
         
     def _transform_image(self, image):
         return [self.transform(image) for _ in range(self.num_views)]
