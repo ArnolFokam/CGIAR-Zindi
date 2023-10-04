@@ -5,9 +5,22 @@ from torchvision import transforms
 
 from PIL import Image
 import torch
+import torch.nn as nn
 from tqdm import tqdm
 
 from cgiar.utils import get_dir
+
+
+class RandomErasing(transforms.RandomErasing):
+    def __init__(self, p=0.5, scale=(0.02, 0.2), ratio=(0.3, 3.3), value=0, inplace=False):
+        super().__init__(p, scale, ratio, value, inplace)
+        
+    def __call__(self, img: Image.Image):
+        img = transforms.ToTensor()(img)
+        img = super().__call__(img)
+        img = transforms.ToPILImage()(img)
+        return img
+        
 
 augmentations = {
     "RandomHorizontalFlip": transforms.RandomHorizontalFlip(p=0.5),
@@ -16,12 +29,13 @@ augmentations = {
     "ColorJitter": transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
     "RandomAffine": transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
     "RandomPerspective": transforms.RandomPerspective(distortion_scale=0.5, p=0.5),
-    "RandomErasing": transforms.RandomErasing(p=0.5, scale=(0.02, 0.2), ratio=(0.3, 3.3)),
-    "RandomGrayscale": transforms.RandomGrayscale(p=0.1),
+    "RandomErasing": RandomErasing(p=0.5, scale=(0.02, 0.2), ratio=(0.3, 3.3)),
+    "RandomGrayscale": transforms.RandomGrayscale(p=0.2),
     "RandomAffineWithResize": transforms.RandomAffine(degrees=30, translate=(0.2, 0.2), scale=(0.8, 1.2), interpolation=Image.BILINEAR),
     "RandomPosterize": transforms.RandomPosterize(bits=4),
     "RandomSolarize": transforms.RandomSolarize(threshold=128),
     "RandomEqualize": transforms.RandomEqualize(p=0.1),
+    "Identity": nn.Identity(),
 }
 
 class CGIARDataset(Dataset):
@@ -101,9 +115,45 @@ class CGIARDataset(Dataset):
         
         
 class CGIARDataset_V2(CGIARDataset):
-    def __init__(self, root_dir: pathlib.Path, split: str ='train', transform=None, num_views=1):
-        super().__init__(root_dir, split, transform)
+    def __init__(self, 
+                 root_dir: pathlib.Path, 
+                 split: str ='train', 
+                 transform=None, 
+                 initial_size: int = 512, 
+                 num_views=1):
+        super().__init__(root_dir, split, transform, initial_size)
         self.num_views = num_views
         
     def _transform_image(self, image):
         return [self.transform(image) for _ in range(self.num_views)]
+    
+class CGIARDataset_V3(CGIARDataset_V2):
+    def __init__(self, 
+                 root_dir: pathlib.Path, 
+                 split: str = 'train', 
+                 transform=None, 
+                 initial_size: int = 512, 
+                 num_views=1):
+        super().__init__(root_dir, split, transform, initial_size, num_views)
+        
+        if self.split == "train":
+            # unique values from the "extent" 
+            # column and use them as classes
+            self.classes = self.df["extent"].unique()
+            self.class_to_idx = {cls: idx for idx, cls in enumerate(self.classes)}
+            self.idx_to_class = {idx: cls for idx, cls in enumerate(self.classes)}
+            
+            # get classes weights
+            class_counts = self.df["extent"].value_counts().sort_index()
+            total_samples = len(self.df)
+            self.class_weights = total_samples / (class_counts * len(class_counts))
+            self.class_weights = self.class_weights.to_numpy()
+            
+    def __getitem__(self, idx):
+        index, image, extent = super().__getitem__(idx)
+        
+        if extent.item() != -1:
+            extent = self.class_to_idx[extent.item()]
+            extent = torch.LongTensor([extent])
+            
+        return index, image,  extent
