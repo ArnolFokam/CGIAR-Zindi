@@ -1,5 +1,6 @@
 import pathlib
 import pandas as pd
+import numpy as np
 from torch.utils.data import Dataset
 from torchvision import transforms
 
@@ -38,6 +39,33 @@ augmentations = {
     "Identity": nn.Identity(),
 }
 
+
+class ClassBalancedSampler(torch.utils.data.Sampler):
+    def __init__(self, dataset, class_weights):
+        self.dataset = dataset
+        self.class_weights = class_weights
+        self.num_samples = len(self.dataset)
+
+    def __iter__(self):
+        class_indices = {extent: [] for _, _, extent in self.dataset}
+
+        # Collect the indices of each class
+        for i in range(self.num_samples):
+            _, _, extent = self.dataset[i]
+            class_indices[extent].append(i)
+
+        # Create an array of sampled indices based on class probabilities
+        sampled_indices = np.concatenate([
+            np.random.choice(indices, size=int(self.class_weights[extent]), replace=True) 
+            for extent, indices in class_indices.items()
+        ])
+
+        return iter(sampled_indices)
+
+    def __len__(self):
+        return self.num_samples
+
+
 class CGIARDataset(Dataset):
     """Pytorch data class"""
     
@@ -68,6 +96,7 @@ class CGIARDataset(Dataset):
         self.df = pd.read_csv(root_dir / f'{self.split_to_csv_filename[split]}.csv')
         
         self.images = {}
+        
         
         for idx, row in tqdm(self.df.iterrows(), total=len(self.df)):
             image_path = self.images_dir / row['filename']
