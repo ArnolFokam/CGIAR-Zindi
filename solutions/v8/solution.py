@@ -1,15 +1,15 @@
+from sklearn.metrics import mean_squared_error
 from sklearn.neighbors import KNeighborsRegressor
 import torch
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
 import numpy as np
 import pandas as pd
+import timm
 import argparse
-import torch.nn.functional as F
 
 from cgiar.data import CGIARDataset_V2, augmentations
 from cgiar.utils import get_dir
-from cgiar.model import timm_models
 
 if __name__ == "__main__":
     
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     NUM_VIEWS=10
 
     DATA_DIR=get_dir('data')
-    OUTPUT_DIR=get_dir('solutions/v7', args.index)
+    OUTPUT_DIR=get_dir('solutions/v8', args.index)
 
     # ensure reproducibility
     torch.manual_seed(SEED)
@@ -55,40 +55,46 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=TRAIN_BATCH_SIZE, shuffle=False)
 
     # Initialize the regression model
-    model = timm_models[args.model_name]
+    model = timm.create_model(args.model_name, pretrained=True)
+    model.to(device)
     model.eval()
 
     train_representations = []
     train_targets = []
     
-    for _, images, extents in train_loader:
-        images = images[0]
-        train_representations.append(model(images).numpy())
-        train_targets.append(extents.numpy())
+    with torch.no_grad():
+        for _, images, extents in train_loader:
+            images = images[0]
+            train_representations.append(model(images.to(device)).cpu().numpy())
+            train_targets.append(extents.numpy())
         
     torch.cuda.empty_cache()
     
     train_representations = np.concatenate(train_representations)
     train_targets = np.concatenate(train_targets)
     
-    knn_regressor = KNeighborsRegressor()
+    knn_regressor = KNeighborsRegressor(n_jobs=-1)
     knn_regressor.fit(train_representations, train_targets)
     
     train_loader.dataset.num_views = NUM_VIEWS
     train_predictions = []
-    
-    
-    train_predictions = []
+    train_targets = []
     
     # get and save the train predictions
     with torch.no_grad():
-        for ids, images_list, _ in train_loader:
+        for ids, images_list, extents in train_loader:
             # get the mode argmax predictions from each model
-            outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0).numpy()
+            outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0).cpu().numpy()
             outputs = knn_regressor.predict(outputs).tolist()
-            train_predictions.extend(list(zip(ids, outputs)))
+            train_predictions.extend(list(zip(ids, [output[0] for output in outputs])))
+            train_targets.append(extents.numpy())
             
-    
+    torch.cuda.empty_cache()
+    train_targets = np.concatenate(train_targets)
+            
+    mse = mean_squared_error(train_targets, [output[1] for output in train_predictions])
+    print("Mean Squared Error:", mse ** 0.5)
+            
     train_dataset.df['predicted_extent'] = train_dataset.df['ID'].map(dict(train_predictions))
     train_dataset.df.to_csv(OUTPUT_DIR / 'train_predictions.csv', index=False)
     
@@ -101,9 +107,9 @@ if __name__ == "__main__":
     with torch.no_grad():
         for ids, images_list, _ in test_loader:
             # average predictions from all the views
-            outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0).numpy()
+            outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0).cpu().numpy()
             outputs = knn_regressor.predict(outputs).tolist()
-            predictions.extend(list(zip(ids, outputs)))
+            predictions.extend(list(zip(ids, [output[0] for output in outputs])))
 
     # load the sample submission file and update the extent column with the predictions
     submission_df = pd.read_csv('data/SampleSubmission.csv')
