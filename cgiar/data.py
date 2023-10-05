@@ -97,7 +97,6 @@ class CGIARDataset(Dataset):
         
         self.images = {}
         
-        
         for idx, row in tqdm(self.df.iterrows(), total=len(self.df)):
             image_path = self.images_dir / row['filename']
             image = Image.open(image_path)
@@ -108,7 +107,6 @@ class CGIARDataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        
         image = self.images[idx]
         
         if self.transform:

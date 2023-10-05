@@ -2,13 +2,11 @@ import torch
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
 from torch import optim
-import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
 import torch.nn.functional as F
 import torch.nn as nn
-from torch.utils.data import WeightedRandomSampler
 
 from cgiar.data import CGIARDataset_V3, augmentations
 from cgiar.model import Resnet50_V3
@@ -23,7 +21,7 @@ if __name__ == "__main__":
     
     # Define hyperparameters
     SEED=42
-    LR=1e-2
+    LR=1e-5
     EPOCHS=30
     IMAGE_SIZE=224
     TRAIN_BATCH_SIZE=64
@@ -56,22 +54,16 @@ if __name__ == "__main__":
     train_dataset = CGIARDataset_V3(root_dir=DATA_DIR, split='train', transform=transform)
 
     # Create DataLoader instances
-    class_weights = train_dataset.class_weights
-    samples_weight = np.array([
-        class_weights[train_dataset[idx][-1].item()] for idx in range(len(train_dataset))
-    ])
-    samples_weight = torch.from_numpy(samples_weight)
-    sampler = WeightedRandomSampler(
-        weights=samples_weight, num_samples=len(train_dataset), replacement=True
-    )
-    train_loader = DataLoader(train_dataset, batch_size=TRAIN_BATCH_SIZE, sampler=sampler)
+    train_loader = DataLoader(train_dataset, batch_size=TRAIN_BATCH_SIZE, shuffle=True)
 
     # Initialize the regression model
     model = Resnet50_V3()
     model = model.to(device)
 
     # Define loss function (mean squared error) and optimizer (e.g., Adam)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(
+        weight=torch.FloatTensor(train_dataset.class_weights).to(device)
+    )
     optimizer = optim.Adam(model.parameters(), lr=LR)
 
     model.train()
