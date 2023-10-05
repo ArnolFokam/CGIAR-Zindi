@@ -1,5 +1,21 @@
+import timm
 import torch.nn as nn
 import torchvision.models as models
+
+
+timm_models = {
+    "xcit_nano_12_p16_224": timm.create_model("xcit_nano_12_p16_224", pretrained=True),
+    "xcit_nano_12_p8_224": timm.create_model("xcit_nano_12_p8_224", pretrained=True),
+    "xcit_nano_12_p8_224": timm.create_model("xcit_nano_12_p8_224", pretrained=True),
+    "xcit_tiny_12_p16_224": timm.create_model("xcit_tiny_12_p16_224", pretrained=True),
+    "xcit_tiny_12_p8_224": timm.create_model("xcit_tiny_12_p8_224", pretrained=True),
+    "xcit_tiny_24_p8_224": timm.create_model("xcit_tiny_24_p8_224", pretrained=True),
+    "xcit_tiny_24_p16_224": timm.create_model("xcit_tiny_24_p16_224", pretrained=True),
+    "xcit_small_12_p8_224": timm.create_model("xcit_small_12_p8_224", pretrained=True),
+    "xcit_small_12_p16_224": timm.create_model("xcit_small_12_p16_224", pretrained=True),
+    "xcit_small_24_p8_224": timm.create_model("xcit_small_24_p8_224", pretrained=True),
+    "xcit_small_24_p16_224": timm.create_model("xcit_small_24_p16_224", pretrained=True),
+}
 
 
 class Resnet50_V1(nn.Module):
