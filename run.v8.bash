@@ -20,6 +20,6 @@ index=1
 # Loop through the keys and call the Python program
 for key in "${!models[@]}"; do
     model_name="${models[$key]}"
-    CUDA_VISIBLE_DEVICES=1 python solutions/v8/solution.py --index "#$index" --model_index "$index" --model_name "$model_name"
+    CUDA_VISIBLE_DEVICES=1 python solutions/v8/solution.py --index "#$index" --model_name "$model_name"
     ((index++))
 done
