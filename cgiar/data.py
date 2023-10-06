@@ -94,6 +94,8 @@ class CGIARDataset(Dataset):
 
         # Determine the CSV file path based on the split
         self.df = pd.read_csv(root_dir / f'{self.split_to_csv_filename[split]}.csv')
+        # self.df = self.df.iloc[:50, :]
+        
         
         self.images = {}
         

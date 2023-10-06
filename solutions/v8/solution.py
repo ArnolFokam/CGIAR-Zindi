@@ -1,5 +1,5 @@
 from sklearn.metrics import mean_squared_error
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.svm import LinearSVR
 import torch
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
@@ -14,7 +14,6 @@ from cgiar.utils import get_dir
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Image Augmentation Program")
-    parser.add_argument("--augmentation", default="Identity", type=str, help="Specify the augmentation to apply")
     parser.add_argument("--model_name", type=str, help="Specify the pre-trained model to the get the representations from")
     parser.add_argument("--index", default="./", type=str, help="Specify the index of the run")
     args = parser.parse_args()
@@ -24,7 +23,6 @@ if __name__ == "__main__":
     IMAGE_SIZE=224
     TRAIN_BATCH_SIZE=64
     TEST_BATCH_SIZE=32
-    AUGMENTATION=args.augmentation
     NUM_VIEWS=10
 
     DATA_DIR=get_dir('data')
@@ -38,12 +36,14 @@ if __name__ == "__main__":
     # check if GPU is available
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    print(augmentations[AUGMENTATION], args.index)
+    print(args.model_name, args.index)
         
     # Define transform for image preprocessing
     transform = transforms.Compose([
         transforms.RandomResizedCrop(IMAGE_SIZE),
-        augmentations[AUGMENTATION],
+        augmentations["RandomEqualize"],
+        augmentations["RandomAffine"],
+        augmentations["RandomErasing"],
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
@@ -73,8 +73,9 @@ if __name__ == "__main__":
     train_representations = np.concatenate(train_representations)
     train_targets = np.concatenate(train_targets)
     
-    knn_regressor = KNeighborsRegressor(n_jobs=-1)
-    knn_regressor.fit(train_representations, train_targets)
+    svr = LinearSVR(random_state=SEED, dual=True, max_iter=10000)
+    print(train_targets.ravel().shape, train_representations.shape)
+    svr.fit(train_representations, train_targets.ravel())
     
     train_loader.dataset.num_views = NUM_VIEWS
     train_predictions = []
@@ -85,8 +86,8 @@ if __name__ == "__main__":
         for ids, images_list, extents in train_loader:
             # get the mode argmax predictions from each model
             outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0).cpu().numpy()
-            outputs = knn_regressor.predict(outputs).tolist()
-            train_predictions.extend(list(zip(ids, [output[0] for output in outputs])))
+            outputs = svr.predict(outputs).tolist()
+            train_predictions.extend(list(zip(ids, outputs)))
             train_targets.append(extents.numpy())
             
     torch.cuda.empty_cache()
@@ -108,8 +109,8 @@ if __name__ == "__main__":
         for ids, images_list, _ in test_loader:
             # average predictions from all the views
             outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0).cpu().numpy()
-            outputs = knn_regressor.predict(outputs).tolist()
-            predictions.extend(list(zip(ids, [output[0] for output in outputs])))
+            outputs = svr.predict(outputs).tolist()
+            predictions.extend(list(zip(ids, outputs)))
 
     # load the sample submission file and update the extent column with the predictions
     submission_df = pd.read_csv('data/SampleSubmission.csv')

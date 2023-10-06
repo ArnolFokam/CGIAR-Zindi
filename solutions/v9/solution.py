@@ -22,15 +22,14 @@ if __name__ == "__main__":
     # Define hyperparameters
     SEED=42
     LR=1e-4
-    EPOCHS=20
+    EPOCHS=30
     IMAGE_SIZE=224
     TRAIN_BATCH_SIZE=64
     TEST_BATCH_SIZE=32
-    AUGMENTATION=args.augmentation
     NUM_VIEWS=10
 
     DATA_DIR=get_dir('data')
-    OUTPUT_DIR=get_dir('solutions/v6', args.index)
+    OUTPUT_DIR=get_dir('solutions/v9', args.index)
 
     # ensure reproducibility
     torch.manual_seed(SEED)
@@ -64,7 +63,7 @@ if __name__ == "__main__":
         nn.Linear(1000, 512),
         nn.ReLU(),
         nn.Linear(512, 1),
-        nn.ReLu()
+        nn.ReLU()
     )
     
     model.to(device)
