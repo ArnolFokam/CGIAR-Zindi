@@ -1,5 +1,5 @@
 from sklearn.metrics import mean_squared_error
-from sklearn.svm import LinearSVR
+from sklearn.neighbors import KNeighborsRegressor
 import torch
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     ])
 
     # Create instances of CGIARDataset for training and testing
-    train_dataset = CGIARDataset_V2(root_dir=DATA_DIR, split='train', transform=transform)
+    train_dataset = CGIARDataset_V2(root_dir=DATA_DIR, split='train', transform=transform, num_views=NUM_VIEWS)
 
     # Create DataLoader instances
     train_loader = DataLoader(train_dataset, batch_size=TRAIN_BATCH_SIZE, shuffle=False)
@@ -63,19 +63,18 @@ if __name__ == "__main__":
     train_targets = []
     
     with torch.no_grad():
-        for _, images, extents in train_loader:
-            images = images[0]
-            train_representations.append(model(images.to(device)).cpu().numpy())
-            train_targets.append(extents.numpy())
+        for _, images_list, extents in train_loader:
+            representations = torch.stack([model(images.to(device)) for images in images_list]).cpu().numpy()
+            train_representations.extend(representations)
+            train_targets.extend(extents.repeat(NUM_VIEWS, 1).numpy())
         
     torch.cuda.empty_cache()
     
     train_representations = np.concatenate(train_representations)
     train_targets = np.concatenate(train_targets)
     
-    svr = LinearSVR(random_state=SEED, dual=True, max_iter=10000)
-    print(train_targets.ravel().shape, train_representations.shape)
-    svr.fit(train_representations, train_targets.ravel())
+    knn_regressor = KNeighborsRegressor(n_jobs=-1, n_neighbors=10)
+    knn_regressor.fit(train_representations, train_targets)
     
     train_loader.dataset.num_views = NUM_VIEWS
     train_predictions = []
@@ -86,7 +85,7 @@ if __name__ == "__main__":
         for ids, images_list, extents in train_loader:
             # get the mode argmax predictions from each model
             outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0).cpu().numpy()
-            outputs = svr.predict(outputs).tolist()
+            outputs = knn_regressor.predict(outputs).tolist()
             train_predictions.extend(list(zip(ids, outputs)))
             train_targets.append(extents.numpy())
             
@@ -109,7 +108,7 @@ if __name__ == "__main__":
         for ids, images_list, _ in test_loader:
             # average predictions from all the views
             outputs = torch.stack([model(images.to(device)) for images in images_list]).mean(dim=0).cpu().numpy()
-            outputs = svr.predict(outputs).tolist()
+            outputs = knn_regressor.predict(outputs).tolist()
             predictions.extend(list(zip(ids, outputs)))
 
     # load the sample submission file and update the extent column with the predictions
