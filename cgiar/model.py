@@ -1,5 +1,6 @@
 import timm
 import torch.nn as nn
+import torch.nn.functional as F
 import torchvision.models as models
 
 
@@ -60,3 +61,33 @@ class Resnet50_V3(nn.Module):
         # Forward pass through the CNN and regression layers
         x = self.cnn(x)
         return x
+    
+class XCITMultipleMLP(nn.Module):
+    def __init__(self, 
+                 model_name,
+                 pretrained=True,
+                 num_mlps: int = 1,
+                 hidden_size: int = 128) -> None:
+        super().__init__()
+        
+        backbone = timm.create_model(model_name, pretrained=pretrained)
+        self.model = nn.Sequential(
+            backbone,
+            nn.Linear(
+                list(backbone.children())[-1].weight.shape[0], 
+                hidden_size
+            ),
+            nn.ReLU(),
+            nn.Linear(hidden_size, num_mlps),
+            nn.ReLU()
+        )
+        self.num_mlps = num_mlps
+        
+    def forward(self, x):
+        # Forward pass through the CNN and regression layers
+        # Get the MLP predictions for a particular growth stage
+        growth_stage, _, image = x
+        mask = F.one_hot(growth_stage, num_classes=self.num_mlps)
+        predictions = self.model(image) * mask.float()
+        return predictions.sum(dim=-1)
+        

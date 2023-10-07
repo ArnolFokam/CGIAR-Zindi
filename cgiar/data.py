@@ -6,10 +6,32 @@ from torchvision import transforms
 
 from PIL import Image
 import torch
+import cv2
+import random
+import torchvision.transforms.functional as F
 import torch.nn as nn
 from tqdm import tqdm
 
 from cgiar.utils import get_dir
+
+
+def resize(image: Image, size: int):
+    # Calculate the aspect ratio of the input image
+    width, height = image.size
+    aspect_ratio = width / height
+
+    # Determine the new dimensions while maintaining the aspect ratio
+    if aspect_ratio > 1:
+        new_width = size
+        new_height = int(size / aspect_ratio)
+    else:
+        new_height = size
+        new_width = int(size * aspect_ratio)
+
+    # Resize the image
+    resized_image = image.resize((new_width, new_height))
+
+    return resized_image
 
 
 class RandomErasing(transforms.RandomErasing):
@@ -36,35 +58,9 @@ augmentations = {
     "RandomPosterize": transforms.RandomPosterize(bits=4),
     "RandomSolarize": transforms.RandomSolarize(threshold=128),
     "RandomEqualize": transforms.RandomEqualize(p=0.1),
+    "RandomBlur": transforms.RandomApply([transforms.GaussianBlur(kernel_size=3)], p=0.1),
     "Identity": nn.Identity(),
 }
-
-
-class ClassBalancedSampler(torch.utils.data.Sampler):
-    def __init__(self, dataset, class_weights):
-        self.dataset = dataset
-        self.class_weights = class_weights
-        self.num_samples = len(self.dataset)
-
-    def __iter__(self):
-        class_indices = {extent: [] for _, _, extent in self.dataset}
-
-        # Collect the indices of each class
-        for i in range(self.num_samples):
-            _, _, extent = self.dataset[i]
-            class_indices[extent].append(i)
-
-        # Create an array of sampled indices based on class probabilities
-        sampled_indices = np.concatenate([
-            np.random.choice(indices, size=int(self.class_weights[extent]), replace=True) 
-            for extent, indices in class_indices.items()
-        ])
-
-        return iter(sampled_indices)
-
-    def __len__(self):
-        return self.num_samples
-
 
 class CGIARDataset(Dataset):
     """Pytorch data class"""
@@ -102,7 +98,7 @@ class CGIARDataset(Dataset):
         for idx, row in tqdm(self.df.iterrows(), total=len(self.df)):
             image_path = self.images_dir / row['filename']
             image = Image.open(image_path)
-            image = self._resize(image, initial_size)
+            image = resize(image, initial_size)
             self.images[idx] = image
 
     def __len__(self):
@@ -123,24 +119,6 @@ class CGIARDataset(Dataset):
     
     def _transform_image(self, image):
         return self.transform(image)
-    
-    def _resize(self, image: Image, size: int):
-        # Calculate the aspect ratio of the input image
-        width, height = image.size
-        aspect_ratio = width / height
-
-        # Determine the new dimensions while maintaining the aspect ratio
-        if aspect_ratio > 1:
-            new_width = size
-            new_height = int(size / aspect_ratio)
-        else:
-            new_height = size
-            new_width = int(size * aspect_ratio)
-
-        # Resize the image
-        resized_image = image.resize((new_width, new_height))
-
-        return resized_image
         
         
 class CGIARDataset_V2(CGIARDataset):
@@ -186,3 +164,82 @@ class CGIARDataset_V3(CGIARDataset_V2):
             extent = torch.LongTensor([extent])
             
         return index, image,  extent
+    
+class CGIARDataset_V4(Dataset):
+    growth_stage_to_class = {
+        'S': 0,
+        'V': 1,
+        'F': 2,
+        'M': 3
+    }
+    
+    season_to_class = {
+        'SR2021': 0,
+        'LR2021': 1,
+        'LR2020': 2,
+        'SR2020': 3,
+    }
+    
+    columns = ["ID", "filename", "growth_stage", "season"]
+    
+    def __init__(self, 
+                 features, 
+                 images,
+                 num_views=1,
+                 labels=None,
+                 transform=None,
+                 target_transform=None):
+        # save data
+        self.features = features
+        self.labels = labels
+        self.images = images
+        
+        # transforms
+        self.num_views=num_views
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __len__(self):
+        return len(self.features)
+
+    def __getitem__(self, idx):
+        index = self.features.iloc[idx, self.columns.index("ID")]
+        growth_stage = self.features.iloc[idx, self.columns.index("growth_stage")]
+        season = self.features.iloc[idx, self.columns.index("season")]
+        image = self.images[index]
+        
+        extent = -1
+        if self.labels is not None:
+            extent = self.labels.iloc[idx]
+            
+            if self.target_transform:
+                extent = self.target_transform(extent)
+            
+        if self.transform:
+            images = self._transform_image(image)
+        
+        return (
+            index, 
+            images, 
+            torch.LongTensor([self.growth_stage_to_class[growth_stage]]), 
+            torch.LongTensor([self.season_to_class[season]]), 
+            torch.LongTensor([extent])
+        )
+        
+    def _transform_image(self, image):
+        return [self.transform(image) for _ in range(self.num_views)]
+    
+    @staticmethod
+    def load_images(dataframe, folder, initial_size):
+        images = {}
+        
+        for idx, row in tqdm(dataframe.iterrows(), total=len(dataframe)):
+            index = row['ID']
+            image_path = folder / row['filename']
+            image = Image.open(image_path)
+            image = resize(image, initial_size)
+            images[idx] = (index, image)
+            
+        return images
+        
+        
