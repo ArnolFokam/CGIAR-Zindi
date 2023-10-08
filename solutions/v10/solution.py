@@ -28,13 +28,13 @@ if __name__ == "__main__":
     # Define hyperparameters
     SEED=42
     LR=1e-4
-    EPOCHS=5
-    IMAGE_SIZE=96
-    INITIAL_SIZE=96
+    EPOCHS=30
+    IMAGE_SIZE=224
+    INITIAL_SIZE=512
     TRAIN_BATCH_SIZE=64
     TEST_BATCH_SIZE=32
     HIDDEN_SIZE=128
-    NUM_FOLDS=2
+    NUM_FOLDS=4
     NUM_VIEWS=10
 
     DATA_DIR=get_dir('data')
@@ -56,9 +56,9 @@ if __name__ == "__main__":
     transform = transforms.Compose([
         transforms.RandomResizedCrop(IMAGE_SIZE),
         augmentations["RandomEqualize"],
-        augmentations["RandomAffine"],
         augmentations["RandomBlur"],
         augmentations["RandomErasing"],
+        augmentations["RandomAffine"],
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])

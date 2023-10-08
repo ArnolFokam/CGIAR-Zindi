@@ -1,4 +1,5 @@
 import timm
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
@@ -73,13 +74,14 @@ class XCITMultipleMLP(nn.Module):
         backbone = timm.create_model(model_name, pretrained=pretrained)
         self.model = nn.Sequential(
             backbone,
+            nn.Dropout(0.4),
             nn.Linear(
                 list(backbone.children())[-1].weight.shape[0], 
                 hidden_size
             ),
-            nn.ReLU(),
+            nn.Tanh(),
+            nn.Dropout(0.1),
             nn.Linear(hidden_size, num_mlps),
-            nn.ReLU()
         )
         self.num_mlps = num_mlps
         
@@ -89,5 +91,10 @@ class XCITMultipleMLP(nn.Module):
         growth_stage, _, image = x
         mask = F.one_hot(growth_stage, num_classes=self.num_mlps)
         predictions = self.model(image) * mask.float()
-        return predictions.sum(dim=-1)
+        predictions = predictions.sum(dim=-1)
+        
+        # clip values between 0 and 100
+        predictions = torch.clamp(predictions, 0.0, 100.0)
+        
+        return predictions
         
