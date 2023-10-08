@@ -35,7 +35,7 @@ if __name__ == "__main__":
     TEST_BATCH_SIZE=32
     HIDDEN_SIZE=128
     NUM_FOLDS=2
-    NUM_VIEWS=3
+    NUM_VIEWS=10
 
     DATA_DIR=get_dir('data')
     OUTPUT_DIR=get_dir('solutions/v10', args.index)
