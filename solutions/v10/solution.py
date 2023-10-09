@@ -34,7 +34,7 @@ if __name__ == "__main__":
     TEST_BATCH_SIZE=64
     HIDDEN_SIZE=512
     NUM_FOLDS=5
-    NUM_VIEWS=10
+    NUM_VIEWS=20
 
     DATA_DIR=get_dir('data')
     OUTPUT_DIR=get_dir('solutions/v10', args.index)
@@ -244,8 +244,9 @@ if __name__ == "__main__":
         
     # SUBMISSION ...
     
-    weights = [1.0 / fold_losses[fold_idx] for fold_idx in fold_losses]
-    weights = [weight / sum(weights) for weight in weights]
+    # get weight scores for each fold with softmax
+    weights = nn.functional.softmax(torch.tensor(list(fold_losses.values())), dim=0).tolist()
+    print(dict(zip(range(NUM_FOLDS), weights)))
     
     # Load test data frame from csv
     X_test = pd.read_csv(DATA_DIR / 'Test.csv')
@@ -274,12 +275,12 @@ if __name__ == "__main__":
     with torch.no_grad():
         for ids, images_list, growth_stage, season, _ in test_loader:
             
-            outputs = torch.zeros(len(ids))
+            outputs = torch.zeros(len(ids)).to(device)
             
             for fold_idx in range(0, NUM_FOLDS):
             
                 # average predictions from all the views
-                outputs = weights[fold_idx] * torch.stack([model((
+                outputs += weights[fold_idx] * torch.stack([model((
                     growth_stage.to(device).squeeze(),
                     season.to(device).squeeze(),
                     images.to(device)
