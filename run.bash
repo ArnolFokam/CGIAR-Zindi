@@ -4,7 +4,7 @@
 models=(
     "xcit_nano_12_p16_224"
     "xcit_nano_12_p8_224"
-#     "xcit_tiny_12_p16_224"
+    "xcit_tiny_12_p16_224"
 #     "xcit_tiny_12_p8_224"
 #     "xcit_tiny_24_p8_224"
 #     "xcit_tiny_24_p16_224"

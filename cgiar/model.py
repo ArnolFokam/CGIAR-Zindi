@@ -71,17 +71,19 @@ class XCITMultipleMLP(nn.Module):
                  hidden_size: int = 128) -> None:
         super().__init__()
         
-        backbone = timm.create_model(model_name, pretrained=pretrained)
-        self.model = nn.Sequential(
-            backbone,
-            nn.Dropout(0.4),
+        self.model = timm.create_model(model_name, pretrained=pretrained)
+        num_features = self.model.head.in_features
+        
+        # modify head
+        self.model.head_drop = nn.Dropout(0.2)
+        self.model.head = nn.Sequential(
             nn.Linear(
-                list(backbone.children())[-1].weight.shape[0], 
+                num_features, 
                 hidden_size
             ),
-            nn.Tanh(),
-            nn.Dropout(0.1),
+            nn.Relu(),
             nn.Linear(hidden_size, num_mlps),
+            nn.Relu(),
         )
         self.num_mlps = num_mlps
         
@@ -91,10 +93,5 @@ class XCITMultipleMLP(nn.Module):
         growth_stage, _, image = x
         mask = F.one_hot(growth_stage, num_classes=self.num_mlps)
         predictions = self.model(image) * mask.float()
-        predictions = predictions.sum(dim=-1)
-        
-        # clip values between 0 and 100
-        predictions = torch.clamp(predictions, 0.0, 100.0)
-        
-        return predictions
+        return predictions.sum(dim=-1)
         

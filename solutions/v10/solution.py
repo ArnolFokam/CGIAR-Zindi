@@ -33,7 +33,7 @@ if __name__ == "__main__":
     INITIAL_SIZE=512
     TRAIN_BATCH_SIZE=64
     TEST_BATCH_SIZE=32
-    HIDDEN_SIZE=128
+    HIDDEN_SIZE=512
     NUM_FOLDS=4
     NUM_VIEWS=10
 
