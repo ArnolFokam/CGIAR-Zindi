@@ -58,7 +58,7 @@ augmentations = {
     "RandomPosterize": transforms.RandomPosterize(bits=4),
     "RandomSolarize": transforms.RandomSolarize(threshold=128),
     "RandomEqualize": transforms.RandomEqualize(p=0.1),
-    "RandomBlur": transforms.RandomApply([transforms.GaussianBlur(kernel_size=3)], p=0.1),
+    "RandomBlur": transforms.RandomApply([transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))], p=0.1),
     "Identity": nn.Identity(),
 }
 
