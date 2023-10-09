@@ -15,7 +15,7 @@ models=(
 )
 
 # Initialize an incrementing index
-index=1
+index=2
 
 python setup.py install
 
