@@ -30,8 +30,8 @@ if __name__ == "__main__":
     EPOCHS=30
     IMAGE_SIZE=224
     INITIAL_SIZE=512
-    TRAIN_BATCH_SIZE=64
-    TEST_BATCH_SIZE=32
+    TRAIN_BATCH_SIZE=128
+    TEST_BATCH_SIZE=64
     HIDDEN_SIZE=512
     NUM_FOLDS=5
     NUM_VIEWS=10
@@ -62,6 +62,14 @@ if __name__ == "__main__":
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     target_transform = nn.Identity()
+    
+    test_transform = transform = transforms.Compose([
+        transforms.RandomResizedCrop(IMAGE_SIZE),
+        augmentations["RandomEqualize"],
+        augmentations["RandomAffine"],
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
     
     # Load data frame from csv
     df_train = pd.read_csv(DATA_DIR / 'Train.csv')
@@ -175,7 +183,7 @@ if __name__ == "__main__":
                 
                 # Create DataLoader instances
                 val_dataset_fold = CGIARDataset_V4(
-                    transform=transform,
+                    transform=test_transform,
                     labels=y_val_fold,
                     features=X_val_fold,
                     num_views=NUM_VIEWS,
@@ -250,7 +258,7 @@ if __name__ == "__main__":
     test_dataset = CGIARDataset_V4(
         images=test_images,
         num_views=NUM_VIEWS,
-        transform=transform,
+        transform=test_transform,
         features=X_test,
     )
     test_loader = DataLoader(
