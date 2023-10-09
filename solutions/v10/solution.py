@@ -1,4 +1,3 @@
-import glob
 import random
 import argparse
 import numpy as np
@@ -9,13 +8,13 @@ from sklearn.model_selection import StratifiedKFold
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
+from torchvision.transforms import transforms
 
 
-from cgiar.data import CGIARDataset_V4, augmentations
 from cgiar.model import XCITMultipleMLP
 from cgiar.utils import get_dir, time_activity
+from cgiar.data import CGIARDataset_V4, augmentations
 
 
 if __name__ == "__main__":
@@ -27,14 +26,14 @@ if __name__ == "__main__":
     
     # Define hyperparameters
     SEED=42
-    LR=1e-4
+    LR=5e-4
     EPOCHS=30
     IMAGE_SIZE=224
     INITIAL_SIZE=512
     TRAIN_BATCH_SIZE=64
     TEST_BATCH_SIZE=32
     HIDDEN_SIZE=512
-    NUM_FOLDS=4
+    NUM_FOLDS=5
     NUM_VIEWS=10
 
     DATA_DIR=get_dir('data')
@@ -212,7 +211,7 @@ if __name__ == "__main__":
                 # Calculate average val loss
                 avg_val_loss = val_loss / len(val_loader_fold)
                 print(f"Val Loss = {avg_val_loss}")
-                fold_losses[fold_idx] = avg_val_loss
+                fold_losses[fold_idx] = avg_val_loss ** 0.5
                 
             # save model
             torch.save(model.state_dict(), OUTPUT_DIR / f'model_fold_{fold_idx}.pth')
