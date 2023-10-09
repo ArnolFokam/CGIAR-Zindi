@@ -27,7 +27,7 @@ if __name__ == "__main__":
     # Define hyperparameters
     SEED=42
     LR=1e-4
-    EPOCHS=40
+    EPOCHS=30
     IMAGE_SIZE=224
     INITIAL_SIZE=512
     TRAIN_BATCH_SIZE=64
@@ -123,7 +123,7 @@ if __name__ == "__main__":
             train_losses = []  # List to store loss values
 
             # Training loop for regression model
-            with time_activity(f'Training on Fold [{fold_idx}/{NUM_FOLDS}]'):
+            with time_activity(f'Training on Fold [{fold_idx + 1}/{NUM_FOLDS}]'):
                 
                 for epoch in range(EPOCHS):
                     
@@ -209,13 +209,14 @@ if __name__ == "__main__":
                         val_loss += loss.item()
                         
                 # Calculate average val loss
-                avg_val_loss = val_loss / len(val_loader_fold)
+                avg_val_loss = (val_loss / len(val_loader_fold)) ** 0.5
                 print(f"Val Loss = {avg_val_loss}")
-                fold_losses[fold_idx] = avg_val_loss ** 0.5
+                fold_losses[fold_idx] = avg_val_loss
                 
             # save model
             torch.save(model.state_dict(), OUTPUT_DIR / f'model_fold_{fold_idx}.pth')
             models[fold_idx] = model
+            models[fold_idx].cpu()
             
             fold_idx += 1
                 
@@ -267,7 +268,7 @@ if __name__ == "__main__":
             
             for fold_idx in range(0, NUM_FOLDS):
                 
-                model = models[fold_idx]
+                model = models[fold_idx].to(device)
             
                 # average predictions from all the views
                 outputs = weights[fold_idx] * torch.stack([model((
@@ -275,6 +276,8 @@ if __name__ == "__main__":
                     season.to(device).squeeze(),
                     images.to(device)
                 )) for images in images_list]).mean(dim=0)
+                
+                model.cpu()
             
             # get predictions from all the folds
             outputs = outputs.tolist()
