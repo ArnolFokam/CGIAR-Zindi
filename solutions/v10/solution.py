@@ -278,7 +278,6 @@ if __name__ == "__main__":
             
             # get predictions from all the folds
             outputs = outputs.tolist()
-            print(ids)
             predictions.extend(list(zip(ids, outputs)))
 
     # load the sample submission file and update the extent column with the predictions
