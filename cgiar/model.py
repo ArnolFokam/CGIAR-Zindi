@@ -81,9 +81,9 @@ class XCITMultipleMLP(nn.Module):
                 num_features, 
                 hidden_size
             ),
-            nn.Relu(),
+            nn.ReLU(),
             nn.Linear(hidden_size, num_mlps),
-            nn.Relu(),
+            nn.ReLU(),
         )
         self.num_mlps = num_mlps
         

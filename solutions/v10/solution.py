@@ -246,7 +246,7 @@ if __name__ == "__main__":
     test_images = CGIARDataset_V4.load_images(X_test, DATA_DIR / "test", INITIAL_SIZE)
     test_images = dict([test_images[idx] for idx in range(len(test_images))])
     
-    # # Construct test dataset and dataloader
+    # Construct test dataset and dataloader
     test_dataset = CGIARDataset_V4(
         images=test_images,
         num_views=NUM_VIEWS,
@@ -261,14 +261,14 @@ if __name__ == "__main__":
     
     predictions = []
     
+    models = [models[fold_idx].to(device) for fold_idx in range(NUM_FOLDS)]
+    
     with torch.no_grad():
         for ids, images_list, growth_stage, season, _ in test_loader:
             
             outputs = torch.zeros(len(ids))
             
             for fold_idx in range(0, NUM_FOLDS):
-                
-                model = models[fold_idx].to(device)
             
                 # average predictions from all the views
                 outputs = weights[fold_idx] * torch.stack([model((
@@ -276,8 +276,6 @@ if __name__ == "__main__":
                     season.to(device).squeeze(),
                     images.to(device)
                 )) for images in images_list]).mean(dim=0)
-                
-                model.cpu()
             
             # get predictions from all the folds
             outputs = outputs.tolist()
