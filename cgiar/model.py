@@ -94,4 +94,30 @@ class XCITMultipleMLP(nn.Module):
         mask = F.one_hot(growth_stage, num_classes=self.num_mlps)
         predictions = self.model(image) * mask.float()
         return predictions.sum(dim=-1)
+    
+class ResNetMultipleMLP(XCITMultipleMLP):
+    def __init__(self, 
+                 model_name,
+                 pretrained=True,
+                 num_mlps: int = 1,
+                 hidden_size: int = 128) -> None:
+        super().__init__()
+        
+        # Load a pretrained CNN (e.g., ResNet50) with weights
+        self.model = timm.create_model(model_name, pretrained=pretrained)
+        
+        # Modify the final classification layer to output a single regression value
+        num_features = self.model.fc.in_features
+        self.model.fc = nn.Sequential(
+            nn.Linear(
+                num_features, 
+                hidden_size
+            ),
+            nn.ReLU(),
+            nn.Linear(hidden_size, num_mlps),
+            nn.ReLU(),
+        )
+        
+        # modify head
+        self.num_mlps = num_mlps
         

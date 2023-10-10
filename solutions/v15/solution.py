@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
 
-from cgiar.model import XCITMultipleMLP
+from cgiar.model import ResNetMultipleMLP
 from cgiar.utils import get_dir, time_activity
 from cgiar.data import CGIARDataset_V4, augmentations
 
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     NUM_VIEWS=20
 
     DATA_DIR=get_dir('data')
-    OUTPUT_DIR=get_dir('solutions/v10', args.index)
+    OUTPUT_DIR=get_dir('solutions/v15', args.index)
 
     # ensure reproducibility
     torch.manual_seed(SEED)
@@ -114,7 +114,7 @@ if __name__ == "__main__":
             )
             
             # Initialize the regression model
-            model = XCITMultipleMLP(
+            model = ResNetMultipleMLP(
                 model_name=args.model_name,
                 pretrained=True,
                 num_mlps=len(train_loader_fold.dataset.growth_stage_to_class),
