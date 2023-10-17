@@ -95,7 +95,7 @@ class XCITMultipleMLP(nn.Module):
         predictions = self.model(image) * mask.float()
         return predictions.sum(dim=-1)
     
-class ResNetMultipleMLP(XCITMultipleMLP):
+class ResNetMultipleMLP(nn.Module):
     def __init__(self, 
                  model_name,
                  pretrained=True,
@@ -120,4 +120,12 @@ class ResNetMultipleMLP(XCITMultipleMLP):
         
         # modify head
         self.num_mlps = num_mlps
+        
+    def forward(self, x):
+        # Forward pass through the CNN and regression layers
+        # Get the MLP predictions for a particular growth stage
+        growth_stage, _, image = x
+        mask = F.one_hot(growth_stage, num_classes=self.num_mlps)
+        predictions = self.model(image) * mask.float()
+        return predictions.sum(dim=-1)
         

@@ -27,8 +27,8 @@ if __name__ == "__main__":
     # Define hyperparameters
     SEED=42
     LR=1e-4
-    EPOCHS=35
-    IMAGE_SIZE=224
+    EPOCHS=30
+    IMAGE_SIZE=196
     INITIAL_SIZE=512
     TRAIN_BATCH_SIZE=64
     TEST_BATCH_SIZE=32
