@@ -73,7 +73,7 @@ if __name__ == "__main__":
     ])
     
     # Load data frame from csv
-    df_train = pd.read_csv(DATA_DIR / 'Train.csv')[:100]
+    df_train = pd.read_csv(DATA_DIR / 'Train.csv')
     X_train = df_train.drop(columns=['extent'], axis=1)
     y_train = df_train['extent']
     
@@ -147,6 +147,7 @@ if __name__ == "__main__":
                                 season.to(device).squeeze(),
                                 images.to(device)
                             ))
+                            
                             loss = criterion(
                                 outputs.squeeze(), 
                                 target_transform(extents.to(device).squeeze().float())
