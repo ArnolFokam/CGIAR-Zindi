@@ -147,7 +147,6 @@ if __name__ == "__main__":
                                 season.to(device).squeeze(),
                                 images.to(device)
                             ))
-                            print(target_transform(extents.to(device).squeeze().float()))
                             loss = criterion(
                                 outputs.squeeze(), 
                                 target_transform(extents.to(device).squeeze().float())
