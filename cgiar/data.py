@@ -188,7 +188,8 @@ class CGIARDataset_V4(Dataset):
                  num_views=1,
                  labels=None,
                  transform=None,
-                 target_transform=None):
+                 *args,
+                 **kwargs):
         # save data
         self.features = features
         self.labels = labels
@@ -197,7 +198,6 @@ class CGIARDataset_V4(Dataset):
         # transforms
         self.num_views=num_views
         self.transform = transform
-        self.target_transform = target_transform
 
     def __len__(self):
         return len(self.features)
@@ -211,9 +211,6 @@ class CGIARDataset_V4(Dataset):
         extent = -1
         if self.labels is not None:
             extent = self.labels.iloc[idx]
-            
-            if self.target_transform:
-                extent = self.target_transform(extent)
             
         if self.transform:
             images = self._transform_image(image)

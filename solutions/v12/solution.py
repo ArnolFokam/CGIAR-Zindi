@@ -38,7 +38,7 @@ if __name__ == "__main__":
     NUM_VIEWS=20
 
     DATA_DIR=get_dir('data')
-    OUTPUT_DIR=get_dir('solutions/v10', args.index)
+    OUTPUT_DIR=get_dir('solutions/v12', args.index)
 
     # ensure reproducibility
     torch.manual_seed(SEED)
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
-    target_transform, inverse_target_transfrom = transformations[args.label_transform]
+    target_transform, _ = transformations[args.label_transform]
     
     test_transform = transform = transforms.Compose([
         transforms.RandomResizedCrop(IMAGE_SIZE),
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     ])
     
     # Load data frame from csv
-    df_train = pd.read_csv(DATA_DIR / 'Train.csv')
+    df_train = pd.read_csv(DATA_DIR / 'Train.csv')[:100]
     X_train = df_train.drop(columns=['extent'], axis=1)
     y_train = df_train['extent']
     
@@ -104,7 +104,6 @@ if __name__ == "__main__":
                 labels=y_train_fold,
                 features=X_train_fold,
                 images=train_images_fold,
-                target_transform=target_transform,
             )
             
             # Create DataLoader instances
@@ -148,9 +147,10 @@ if __name__ == "__main__":
                                 season.to(device).squeeze(),
                                 images.to(device)
                             ))
+                            print(target_transform(extents.to(device).squeeze().float()))
                             loss = criterion(
                                 outputs.squeeze(), 
-                                extents.to(device).squeeze().float()
+                                target_transform(extents.to(device).squeeze().float())
                             )
                             loss.backward()
                             optimizer.step()
@@ -189,7 +189,6 @@ if __name__ == "__main__":
                     features=X_val_fold,
                     num_views=NUM_VIEWS,
                     images=val_images_fold,
-                    target_transform=target_transform,
                 )
                 
                 # Create DataLoader instances
@@ -212,7 +211,7 @@ if __name__ == "__main__":
                         )) for images in images_list]).mean(dim=0)
                         loss = criterion(
                             outputs.squeeze(), 
-                            extents.to(device).squeeze().float()
+                            target_transform(extents.to(device).squeeze().float())
                         )
                         
                         val_loss += loss.item()

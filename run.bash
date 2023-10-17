@@ -4,7 +4,6 @@
 transformations=(
     "log" 
     "sqrt" 
-    "box" 
     "inv" 
     "exp" 
     "rank" 
